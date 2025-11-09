@@ -1,4 +1,4 @@
-// src/utils/d3visualizer.js - FULLY WORKING VERSION (fixed)
+// src/utils/d3visualizer.js - Fixed outside click handler
 import * as d3 from "d3";
 
 export const visualizeRepo = (
@@ -8,7 +8,8 @@ export const visualizeRepo = (
   setSelectedNode,
   searchTerm = "",
   setSelectedFile = null,
-  setFilePreview
+  setFilePreview,
+  fetchFileContent
 ) => {
   if (!svgRef || !svgRef.current || !data) return;
 
@@ -118,7 +119,6 @@ export const visualizeRepo = (
   root.y0 = 0;
 
   // === SMART INITIAL COLLAPSE ===
-  // Keep first 2 levels visible, collapse deeper nodes
   if (root.children) {
     root.children.forEach(child => {
       if (child.children) {
@@ -235,15 +235,15 @@ export const visualizeRepo = (
     .attr("x", 10)
     .attr("y", 18);
 
-  // CRITICAL: Track if we're dragging
+  // Track dragging
   let isDragging = false;
   let dragStartTime = 0;
 
-  // FIXED DRAG - doesn't interfere with click
+  // Drag handler
   const drag = d3.drag()
     .subject((event, d) => ({ x: d.y || 0, y: d.x || 0 }))
     .on("start", function(event, d) {
-      isDragging = false; // Reset
+      isDragging = false;
       dragStartTime = Date.now();
       
       if (event.sourceEvent) {
@@ -257,7 +257,7 @@ export const visualizeRepo = (
         .style("filter", "url(#strongGlow)");
     })
     .on("drag", function(event, d) {
-      isDragging = true; // Mark as dragging
+      isDragging = true;
       d.y = event.x;
       d.x = event.y;
       d.data._dragX = d.x;
@@ -270,7 +270,6 @@ export const visualizeRepo = (
         .attr("stroke-width", 2.5)
         .style("filter", "url(#softGlow)");
       
-      // Reset dragging flag after a short delay
       setTimeout(() => {
         isDragging = false;
       }, 100);
@@ -333,7 +332,7 @@ export const visualizeRepo = (
     return darkerColor ? darkerColor.darker(0.8).toString() : "#374151";
   }
 
-  // Core update
+  // Core update function
   function update(source) {
     const treeData = treeLayout(root);
     const nodes = treeData.descendants();
@@ -428,17 +427,14 @@ export const visualizeRepo = (
       .style("cursor", "pointer")
       .attr("opacity", 0)
       .on("click", function(event, d) {
-        // CRITICAL: Only expand/collapse if NOT dragging
         const timeSinceStart = Date.now() - dragStartTime;
         
         if (isDragging || timeSinceStart < 150) {
-          // Was dragging, ignore click
           return;
         }
         
         event.stopPropagation();
         
-        // Only expand/collapse directories
         if (d.data.type === "dir") {
           if (d.children) {
             d._children = d.children;
@@ -469,7 +465,6 @@ export const visualizeRepo = (
           .attr("stroke-width", 4)
           .style("filter", "url(#strongGlow)");
 
-        // Tooltip
         let tooltipText = d.data.name;
         if (d.data.type === "dir") {
           const childCount = (d.children || d._children || []).length;
@@ -490,11 +485,6 @@ export const visualizeRepo = (
             .attr("transform", `translate(${d.y + 30},${d.x - 30})`)
             .transition().duration(150)
             .style("opacity", 1);
-        }
-
-        // File preview
-        if (d.data.type === "file" && setFilePreview) {
-          handleFilePreview(event, d, false);
         }
       })
       .on("mouseleave", function(event, d) {
@@ -581,7 +571,6 @@ export const visualizeRepo = (
         return "";
       });
 
-    // Store positions
     nodes.forEach((d) => {
       d.x0 = d.x;
       d.y0 = d.y;
@@ -607,9 +596,13 @@ export const visualizeRepo = (
 
   async function handleFilePreview(event, d, expanded) {
     if (!setFilePreview) return;
-    
+
     setSelectedNode && setSelectedNode(d.data);
-    
+
+    const rawEv = event && (event.pageX !== undefined ? event : event.sourceEvent || event);
+    const pageX = (rawEv && rawEv.pageX) || (rawEv && rawEv.clientX) || 0;
+    const pageY = (rawEv && rawEv.pageY) || (rawEv && rawEv.clientY) || 0;
+
     const owner = data.owner;
     const repo = data.repo_name;
     const branch = data.default_branch || "main";
@@ -617,13 +610,22 @@ export const visualizeRepo = (
 
     setFilePreview({
       visible: true,
-      x: event.pageX + 15,
-      y: event.pageY - 10,
+      x: pageX + 15,
+      y: pageY - 10,
       content: "Loading preview...",
       path: d.data.fullPath,
       expanded: expanded,
       rawUrl
     });
+
+    if (typeof fetchFileContent === "function") {
+      try {
+        await fetchFileContent(owner, repo, d.data.fullPath, pageX + 15, pageY - 10, expanded);
+      } catch (err) {
+        setFilePreview(prev => ({ ...prev, content: "Failed to load preview" }));
+      }
+      return;
+    }
 
     try {
       const res = await fetch(rawUrl);
@@ -664,6 +666,39 @@ export const visualizeRepo = (
     }, 200);
   }
 
+  // ============ FIXED OUTSIDE CLICK HANDLER ============
+  // Remove any existing handler first
+  if (svgRef.current && svgRef.current.__outsideClickHandler) {
+    document.removeEventListener('mousedown', svgRef.current.__outsideClickHandler);
+    svgRef.current.__outsideClickHandler = null;
+  }
+
+  const outsideClickHandler = (e) => {
+    if (!setFilePreview) return;
+    
+    // Check if preview is visible first
+    const previewEl = document.querySelector('.file-preview');
+    if (!previewEl) return; // No preview to close
+    
+    // Check if click is inside the preview box
+    if (previewEl.contains(e.target)) {
+      return; // Click was inside preview, don't close
+    }
+    
+    // Click was outside preview, close it
+    setFilePreview(prev => ({ 
+      ...prev, 
+      visible: false 
+    }));
+  };
+
+  // Store handler reference and attach
+  if (svgRef.current) {
+    svgRef.current.__outsideClickHandler = outsideClickHandler;
+    // Use capture phase to ensure we catch the event
+    document.addEventListener('mousedown', outsideClickHandler, true);
+  }
+
   return {
     expandAll: () => {
       expand(root);
@@ -678,12 +713,18 @@ export const visualizeRepo = (
       svg.transition().duration(750)
         .call(zoom.transform, d3.zoomIdentity);
     },
-    // NEW: zoomBy API so external controls (App.jsx) can zoom safely
     zoomBy: (factor) => {
       try {
         svg.transition().duration(300).call(zoom.scaleBy, factor);
       } catch (e) {
         console.warn("zoomBy failed:", e);
+      }
+    },
+    // Cleanup function - call this when component unmounts
+    cleanup: () => {
+      if (svgRef.current && svgRef.current.__outsideClickHandler) {
+        document.removeEventListener('mousedown', svgRef.current.__outsideClickHandler, true);
+        svgRef.current.__outsideClickHandler = null;
       }
     }
   };

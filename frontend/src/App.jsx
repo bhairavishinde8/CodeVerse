@@ -117,14 +117,18 @@ const App = () => {
     if (repoData && svgRef.current) {
       try {
         const controls = visualizeRepo(
-          repoData, 
-          svgRef, 
-          getFileColor, 
-          setSelectedNode, 
-          searchTerm, 
-          null, 
-          setFilePreview
+          repoData,
+          svgRef,
+          getFileColor,
+          setSelectedNode,
+          searchTerm,
+          null,
+          setFilePreview,
+          // pass app-level fetchFileContent so the visualizer can call it
+          fetchFileContent
         );
+
+
         visualizerControlsRef.current = controls;
       } catch (err) {
         console.error('Visualization error:', err);

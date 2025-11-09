@@ -11,14 +11,19 @@ const FilePreview = ({ filePreview, setFilePreview, repoData, fetchFileContent }
   const previewRef = useRef(null);
 
   useEffect(() => {
-    if (visible && repoData && path && (content === "Loading preview..." || content === "")) {
+  if (visible && repoData && path && (content === "Loading preview..." || content === "")) {
+    if (typeof fetchFileContent === 'function') {
       fetchFileContent(repoData.owner, repoData.repo_name, path, x, y, expanded);
     }
-  }, [visible, path, expanded]);
+  }
+}, [visible, path, expanded, content, repoData]);
+
 
   useEffect(() => {
-    setPosition({ x, y });
-  }, [x, y, visible]);
+  const pos = { x, y };
+  setPosition(clampPosition(pos.x, pos.y));
+}, [x, y, visible]);
+
 
   const handleClose = () => {
     setFilePreview({ ...filePreview, visible: false });
@@ -39,21 +44,35 @@ const FilePreview = ({ filePreview, setFilePreview, repoData, fetchFileContent }
   };
 
   const handleMouseDown = (e) => {
-    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A') return;
-    setIsDragging(true);
-    setDragOffset({
-      x: e.clientX - position.x,
-      y: e.clientY - position.y
-    });
-  };
+  // If the click is inside a button or link (or an element that is inside them), don't start drag
+  if (e.target.closest && (e.target.closest('button') || e.target.closest('a'))) return;
+  setIsDragging(true);
+  setDragOffset({
+    x: e.clientX - position.x,
+    y: e.clientY - position.y
+  });
+};
 
-  const handleMouseMove = (e) => {
-    if (!isDragging) return;
-    setPosition({
-      x: e.clientX - dragOffset.x,
-      y: e.clientY - dragOffset.y
-    });
+
+  const clampPosition = (x, y) => {
+  const vw = window.innerWidth || 1024;
+  const vh = window.innerHeight || 768;
+  const w = expanded ? 760 : 520;
+  const h = expanded ? 640 : 340;
+  const nx = Math.max(8, Math.min(x, vw - w - 8));
+  const ny = Math.max(8, Math.min(y, vh - h - 8));
+  return { x: nx, y: ny };
+};
+
+const handleMouseMove = (e) => {
+  if (!isDragging) return;
+  const rawPos = {
+    x: e.clientX - dragOffset.x,
+    y: e.clientY - dragOffset.y
   };
+  setPosition(clampPosition(rawPos.x, rawPos.y));
+};
+
 
   const handleMouseUp = () => {
     setIsDragging(false);
