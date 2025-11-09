@@ -6,7 +6,7 @@ const VisualizationCanvas = ({ svgRef, loading, onFit }) => {
     { icon: MousePointer2, text: 'Click nodes to expand/collapse' },
     { icon: ZoomIn, text: 'Scroll to zoom' },
     { icon: Move, text: 'Drag to pan' },
-    { icon: Eye, text: 'Hover for file preview' }
+    { icon: Eye, text: 'Double Click for file preview' }
   ];
 
   return (
