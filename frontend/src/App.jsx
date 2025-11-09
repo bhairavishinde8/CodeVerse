@@ -145,9 +145,11 @@ const App = () => {
     setSelectedNode(null);
     setSearchTerm('');
 
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+    
     try {
       const response = await fetch(
-        `http://localhost:5000/api/repo?url=${encodeURIComponent(repoUrl)}`
+        `${API_BASE_URL}/api/repo?url=${encodeURIComponent(repoUrl)}`
       );
       
       if (!response.ok) {
