@@ -177,11 +177,12 @@ const App = () => {
     }
   };
 
-  // Fetch raw file content from GitHub
+  // Fetch raw file content from the backend
   const fetchFileContent = async (owner, repo, filePath, x, y, expanded = false) => {
     const branch = repoData?.default_branch || 'main';
     const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${filePath}`;
-    
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
     setFilePreview({
       visible: true,
       content: "Loading...",
@@ -193,18 +194,24 @@ const App = () => {
     });
 
     try {
-      const response = await fetch(rawUrl);
-      if (!response.ok) throw new Error("Cannot load file");
-      const text = await response.text();
+      const params = new URLSearchParams({ owner, repo, branch, path: filePath });
+      const response = await fetch(`${API_BASE_URL}/api/repo/content?${params.toString()}`);
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || "Cannot load file");
+      }
+
+      const data = await response.json();
 
       setFilePreview(prev => ({
         ...prev,
-        content: text
+        content: data.content
       }));
-    } catch {
+    } catch (err) {
       setFilePreview(prev => ({
         ...prev,
-        content: "⚠️ Unable to load file preview."
+        content: `⚠️ Unable to load file preview: ${err.message}`
       }));
     }
   };
