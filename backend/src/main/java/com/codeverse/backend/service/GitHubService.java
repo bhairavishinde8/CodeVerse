@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.net.URI;
@@ -21,14 +22,16 @@ public class GitHubService {
 
     private final WebClient webClient;
     private final RepoRequestRepository repoRequestRepository;
+    private final OpenAIService openAIService;
 
     @Value("${github.api.token:}") // Optional token
     private String githubToken;
 
     @Autowired
-    public GitHubService(WebClient.Builder webClientBuilder, RepoRequestRepository repoRequestRepository) {
+    public GitHubService(WebClient.Builder webClientBuilder, RepoRequestRepository repoRequestRepository, OpenAIService openAIService) {
         this.webClient = webClientBuilder.baseUrl("https://api.github.com").build();
         this.repoRequestRepository = repoRequestRepository;
+        this.openAIService = openAIService;
     }
 
     public Map<String, Object> fetchRepoStructure(String repoUrl) {
@@ -122,7 +125,50 @@ public class GitHubService {
                 .onErrorResume(e -> Mono.just("⚠️ Error fetching file: " + e.getMessage()));
     }
 
-    private String[] extractOwnerRepo(String url) {
+    public Mono<String> summarizeRepo(String repoUrl, String mode, String length) {
+        String[] ownerRepo = extractOwnerRepo(repoUrl);
+        if (ownerRepo == null) {
+            return Mono.error(new IllegalArgumentException("Invalid GitHub repository URL"));
+        }
+        String owner = ownerRepo[0];
+        String repo = ownerRepo[1];
+
+        return webClient.get()
+                .uri("/repos/{owner}/{repo}", owner, repo)
+                .headers(h -> {
+                    if (githubToken != null && !githubToken.isEmpty()) {
+                        h.setBearerAuth(githubToken);
+                    }
+                })
+                .retrieve()
+                .bodyToMono(Map.class)
+                .flatMap(repoInfo -> {
+                    String defaultBranch = (String) repoInfo.getOrDefault("default_branch", "main");
+                    Mono<String> readmeMono = fetchFileContent(owner, repo, defaultBranch, "README.md")
+                            .onErrorReturn("No README found.");
+
+                    Mono<List<String>> structureMono = webClient.get()
+                            .uri("/repos/{owner}/{repo}/git/trees/{branch}?recursive=1", owner, repo, defaultBranch)
+                            .headers(h -> {
+                                if (githubToken != null && !githubToken.isEmpty()) {
+                                    h.setBearerAuth(githubToken);
+                                }
+                            })
+                            .retrieve()
+                            .bodyToMono(Map.class)
+                            .map(treeData -> {
+                                List<Map<String, Object>> rawTree = (List<Map<String, Object>>) treeData.get("tree");
+                                return rawTree.stream()
+                                        .map(item -> (String) item.get("path"))
+                                        .collect(Collectors.toList());
+                            });
+
+                    return Mono.zip(readmeMono, structureMono)
+                            .flatMap(tuple -> openAIService.summarizeRepository(tuple.getT1(), tuple.getT2(), mode, length));
+                });
+    }
+
+    public String[] extractOwnerRepo(String url) {
         try {
             URI uri = new URI(url);
             String path = uri.getPath();

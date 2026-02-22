@@ -49,6 +49,23 @@ public class RepoController {
                 ));
     }
 
+    @PostMapping("/repo/summarize")
+    public Mono<ResponseEntity<Map<String, String>>> summarizeRepo(@RequestBody Map<String, String> request) {
+        String repoUrl = request.get("repoUrl");
+        String mode = request.getOrDefault("mode", "paragraph");
+        String length = request.getOrDefault("length", "medium");
+
+        if (repoUrl == null || repoUrl.isEmpty()) {
+            return Mono.just(ResponseEntity.badRequest().body(Map.of("error", "Repository URL is required")));
+        }
+
+        return gitHubService.summarizeRepo(repoUrl, mode, length)
+                .map(summary -> ResponseEntity.ok(Map.of("summary", summary)))
+                .onErrorResume(e -> Mono.just(
+                        ResponseEntity.internalServerError().body(Map.of("error", "Failed to summarize repository: " + e.getMessage()))
+                ));
+    }
+
     @GetMapping("/health")
     public ResponseEntity<?> health() {
         return ResponseEntity.ok(Map.of("status", "healthy"));

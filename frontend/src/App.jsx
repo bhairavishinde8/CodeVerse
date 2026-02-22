@@ -10,6 +10,7 @@ import SelectedNodeInfo from './components/SelectedNodeInfo';
 import Instructions from './components/Instructions';
 import RepoSearch from './components/RepoSearch';
 import FilePreview from "./components/FilePreview";
+import RepoSummary from './components/RepoSummary';
 
 import { visualizeRepo } from './utils/d3visualizer';
 
@@ -31,6 +32,9 @@ const App = () => {
     expanded: false,
     rawUrl: ""
   });
+  const [summary, setSummary] = useState(null);
+  const [loadingSummary, setLoadingSummary] = useState(false);
+  const [summaryError, setSummaryError] = useState(null);
 
   const getFileColor = (path) => {
     const ext = path.split('.').pop().toLowerCase();
@@ -148,6 +152,8 @@ const App = () => {
     setRepoData(null);
     setSelectedNode(null);
     setSearchTerm('');
+    setSummary(null);
+    setSummaryError(null);
 
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
     
@@ -169,11 +175,40 @@ const App = () => {
       }
       
       setRepoData(data);
+      fetchRepoSummary(repoUrl, 'paragraph', 'medium');
     } catch (err) {
       console.error("Error fetching repo:", err);
       setError(err.message || 'Failed to fetch repository. Please check the URL and try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchRepoSummary = async (url, mode, length) => {
+    setLoadingSummary(true);
+    setSummaryError(null);
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/repo/summarize`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ repoUrl: url, mode, length }),
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch summary');
+        }
+
+        const data = await response.json();
+        const parsedSummary = JSON.parse(data.summary);
+        setSummary(parsedSummary);
+    } catch (err) {
+        console.error("Error fetching summary:", err);
+        setSummaryError("Failed to generate summary. The AI may be offline or the repo too complex.");
+    } finally {
+        setLoadingSummary(false);
     }
   };
 
@@ -316,6 +351,13 @@ const App = () => {
             <VisualizationCanvas 
               svgRef={svgRef}
               loading={loading}
+            />
+
+            <RepoSummary
+                summary={summary}
+                loading={loadingSummary}
+                summaryError={summaryError}
+                onRegenerate={(mode, length) => fetchRepoSummary(repoUrl, mode, length)}
             />
           </>
         )}
