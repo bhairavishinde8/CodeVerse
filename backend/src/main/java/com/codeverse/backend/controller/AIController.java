@@ -30,4 +30,20 @@ public class AIController {
                 .map(explanation -> ResponseEntity.ok(Map.of("explanation", explanation)))
                 .onErrorResume(e -> Mono.just(ResponseEntity.internalServerError().body(Map.of("error", "Failed to get explanation: " + e.getMessage()))));
     }
+
+    @PostMapping("/analyze-file")
+    public Mono<ResponseEntity<Map<String, String>>> analyzeFile(@RequestBody Map<String, String> request) {
+        String fileContent = request.get("fileContent");
+        String languageLevel = request.getOrDefault("languageLevel", "standard");
+
+        if (fileContent == null || fileContent.isEmpty()) {
+            return Mono.just(ResponseEntity.badRequest().body(Map.of("error", "File content is required")));
+        }
+
+        return openAIService.analyzeFile(fileContent, languageLevel)
+                .map(analysis -> ResponseEntity.ok(Map.of("analysis", analysis)))
+                .onErrorResume(e -> Mono.just(
+                        ResponseEntity.internalServerError().body(Map.of("error", "Failed to analyze file: " + e.getMessage()))
+                ));
+    }
 }

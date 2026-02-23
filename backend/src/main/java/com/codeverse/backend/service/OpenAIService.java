@@ -118,7 +118,63 @@ public class OpenAIService {
         ));
         requestBody.put("max_tokens", 1500);
         requestBody.put("temperature", 0.3);
-        // Removed response_format to avoid 400 errors with some models
+
+        return makeRequest(requestBody);
+    }
+
+    public Mono<String> analyzeFile(String fileContent, String languageLevel) {
+        if (apiToken == null || apiToken.isEmpty()) {
+            return Mono.error(new IllegalStateException("Hugging Face API token not configured"));
+        }
+
+        String toneInstruction = switch (languageLevel.toLowerCase()) {
+            case "beginner" -> "Explain like I'm a complete beginner. Use simple analogies.";
+            case "technical" -> "Provide a deep, technical analysis for an expert developer.";
+            default -> "Provide a standard, developer-friendly explanation.";
+        };
+
+        String prompt = String.format("""
+            Analyze the following code file and generate a structured analysis.
+            
+            CODE:
+            ```
+            %s
+            ```
+            
+            INSTRUCTIONS:
+            1. Tone/Level: %s
+            2. OUTPUT FORMAT: Return ONLY a valid JSON object. Do not include markdown.
+            
+            REQUIRED JSON STRUCTURE:
+            {
+              "explanation": {
+                "overview": "String (What this file does)",
+                "key_logic": "String (Explain the main business logic)",
+                "code_flow": "String (Describe the step-by-step execution flow)"
+              },
+              "comments": [
+                { 
+                  "line": "Int (Approximate line number)", 
+                  "code_snippet": "String (Exact code snippet being explained)",
+                  "comment": "String (Explanation)" 
+                }
+              ],
+              "insights": {
+                "best_practices": ["String (List of best practices followed)"],
+                "possible_improvements": ["String (List of suggestions for improvement)"],
+                "complexity": "String (e.g., Low, Medium, High)"
+              }
+            }
+            """, fileContent, toneInstruction);
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("model", modelName);
+        requestBody.put("messages", List.of(
+                Map.of("role", "system", "content", "You are a senior software engineer who analyzes code files. You strictly output valid JSON."),
+                Map.of("role", "user", "content", prompt)
+        ));
+        requestBody.put("max_tokens", 2000);
+        requestBody.put("temperature", 0.2);
 
         return makeRequest(requestBody);
     }
