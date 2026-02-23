@@ -54,12 +54,13 @@ public class RepoController {
         String repoUrl = request.get("repoUrl");
         String mode = request.getOrDefault("mode", "paragraph");
         String length = request.getOrDefault("length", "medium");
+        String languageLevel = request.getOrDefault("languageLevel", "standard");
 
         if (repoUrl == null || repoUrl.isEmpty()) {
             return Mono.just(ResponseEntity.badRequest().body(Map.of("error", "Repository URL is required")));
         }
 
-        return gitHubService.summarizeRepo(repoUrl, mode, length)
+        return gitHubService.summarizeRepo(repoUrl, mode, length, languageLevel)
                 .map(summary -> ResponseEntity.ok(Map.of("summary", summary)))
                 .onErrorResume(e -> Mono.just(
                         ResponseEntity.internalServerError().body(Map.of("error", "Failed to summarize repository: " + e.getMessage()))

@@ -125,7 +125,7 @@ public class GitHubService {
                 .onErrorResume(e -> Mono.just("⚠️ Error fetching file: " + e.getMessage()));
     }
 
-    public Mono<String> summarizeRepo(String repoUrl, String mode, String length) {
+    public Mono<String> summarizeRepo(String repoUrl, String mode, String length, String languageLevel) {
         String[] ownerRepo = extractOwnerRepo(repoUrl);
         if (ownerRepo == null) {
             return Mono.error(new IllegalArgumentException("Invalid GitHub repository URL"));
@@ -164,7 +164,7 @@ public class GitHubService {
                             });
 
                     return Mono.zip(readmeMono, structureMono)
-                            .flatMap(tuple -> openAIService.summarizeRepository(tuple.getT1(), tuple.getT2(), mode, length));
+                            .flatMap(tuple -> openAIService.summarizeRepository(tuple.getT1(), tuple.getT2(), mode, length, languageLevel));
                 });
     }
 

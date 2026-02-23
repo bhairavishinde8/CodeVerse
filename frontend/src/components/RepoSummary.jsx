@@ -36,6 +36,7 @@ const RepoSummary = ({ summary, loading, summaryError, onRegenerate }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [mode, setMode] = useState('paragraph');
     const [length, setLength] = useState('medium');
+    const [languageLevel, setLanguageLevel] = useState('standard');
     const [copied, setCopied] = useState(false);
 
     const [wordCount, setWordCount] = useState(0);
@@ -64,7 +65,7 @@ const RepoSummary = ({ summary, loading, summaryError, onRegenerate }) => {
     }, [summary]);
 
     const handleRegenerate = () => {
-        onRegenerate(mode, length);
+        onRegenerate(mode, length, languageLevel);
     };
 
     const handleCopy = () => {
@@ -112,50 +113,93 @@ const RepoSummary = ({ summary, loading, summaryError, onRegenerate }) => {
 
                 {/* Controls */}
                 {!isCollapsed && (
-                    <div className="p-4 flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/30">
-                        <div className="flex items-center gap-4">
+                    <div className="p-4 flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/30 bg-slate-900/20">
+                        <div className="flex flex-wrap items-center gap-4">
                             {/* Mode */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium text-slate-400">Mode:</span>
-                                <div className="flex rounded-lg bg-slate-800/50 p-1">
-                                    <button onClick={() => setMode('paragraph')} className={`px-3 py-1 text-xs rounded-md transition ${mode === 'paragraph' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-700/50'}`}>Paragraph</button>
-                                    <button onClick={() => setMode('bullet')} className={`px-3 py-1 text-xs rounded-md transition ${mode === 'bullet' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-700/50'}`}>Bullets</button>
-                                </div>
+                            <div className="flex rounded-lg bg-slate-800/50 p-1">
+                                <button onClick={() => setMode('paragraph')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${mode === 'paragraph' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'}`}>Paragraph</button>
+                                <button onClick={() => setMode('bullet')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${mode === 'bullet' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'}`}>Bullets</button>
                             </div>
+
                             {/* Length */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium text-slate-400">Length:</span>
-                                <div className="flex rounded-lg bg-slate-800/50 p-1">
-                                    <button onClick={() => setLength('short')} className={`px-3 py-1 text-xs rounded-md transition ${length === 'short' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-700/50'}`}>Short</button>
-                                    <button onClick={() => setLength('medium')} className={`px-3 py-1 text-xs rounded-md transition ${length === 'medium' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-700/50'}`}>Medium</button>
-                                    <button onClick={() => setLength('long')} className={`px-3 py-1 text-xs rounded-md transition ${length === 'long' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-700/50'}`}>Long</button>
-                                </div>
+                            <div className="flex rounded-lg bg-slate-800/50 p-1">
+                                {['short', 'medium', 'long'].map((l) => (
+                                    <button
+                                        key={l}
+                                        onClick={() => setLength(l)}
+                                        className={`px-3 py-1.5 text-xs font-medium rounded-md capitalize transition ${length === l ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'}`}
+                                    >
+                                        {l}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Language Level */}
+                            <div className="flex rounded-lg bg-slate-800/50 p-1">
+                                {['beginner', 'standard', 'technical'].map((l) => (
+                                    <button
+                                        key={l}
+                                        onClick={() => setLanguageLevel(l)}
+                                        className={`px-3 py-1.5 text-xs font-medium rounded-md capitalize transition ${languageLevel === l ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'}`}
+                                    >
+                                        {l}
+                                    </button>
+                                ))}
                             </div>
                         </div>
-                        <button onClick={handleRegenerate} disabled={loading} className="px-4 py-2 text-sm font-semibold bg-cyan-600 hover:bg-cyan-500 rounded-lg text-white transition disabled:opacity-50 flex items-center gap-2">
-                            {loading ? <Loader className="w-4 h-4 animate-spin" /> : 'Regenerate'}
+
+                        <button
+                            onClick={handleRegenerate}
+                            disabled={loading}
+                            className="px-5 py-2.5 text-sm font-semibold bg-cyan-600 hover:bg-cyan-500 rounded-lg text-white transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-cyan-500/20"
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader className="w-4 h-4 animate-spin" />
+                                    <span>Generating...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <FileText className="w-4 h-4" />
+                                    <span>Regenerate</span>
+                                </>
+                            )}
                         </button>
                     </div>
                 )}
 
                 {/* Content */}
                 {!isCollapsed && (
-                    <div className="p-6 bg-slate-900/40">
+                    <div className="p-6 bg-slate-900/40 min-h-[300px]">
                         {loading ? (
-                            <SkeletonLoader />
+                            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                                <div className="relative">
+                                    <div className="absolute inset-0 bg-cyan-500 blur-xl opacity-20 animate-pulse rounded-full"></div>
+                                    <Loader className="w-10 h-10 text-cyan-400 animate-spin relative z-10" />
+                                </div>
+                                <p className="text-slate-400 text-sm font-medium animate-pulse">Analyzing repository structure...</p>
+                                <SkeletonLoader />
+                            </div>
                         ) : summaryError ? (
-                            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">{summaryError}</div>
+                            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm flex items-center gap-3">
+                                <div className="p-2 bg-red-500/20 rounded-full">!</div>
+                                {summaryError}
+                            </div>
                         ) : summary && typeof summary === 'object' ? (
-                            <div>
-                                <Section title="Project Overview" content={summary.overview} />
-                                <Section title="Key Features" content={summary.key_features} />
-                                <Section title="Technologies Used" content={summary.technologies} />
-                                <Section title="Main Modules" content={summary.main_modules} />
-                                <Section title="How it Works" content={summary.how_it_works} />
-                                <Section title="Future Improvements" content={summary.future_improvements} />
+                            <div className="animate-in fade-in duration-500">
+                                <div className="space-y-2">
+                                    <Section title="Project Overview" content={summary.overview} />
+                                    <Section title="Key Features" content={summary.key_features} />
+                                    <Section title="Technologies Used" content={summary.technologies} />
+                                    <Section title="Main Modules" content={summary.main_modules} />
+                                    <Section title="How it Works" content={summary.how_it_works} />
+                                    <Section title="Future Improvements" content={summary.future_improvements} />
+                                </div>
                             </div>
                         ) : (
-                            <div className="text-slate-400 text-sm">Click 'Regenerate' to create a summary.</div>
+                            <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+                                <p className="text-sm">Summary will be generated automatically.</p>
+                            </div>
                         )}
                     </div>
                 )}
@@ -164,15 +208,21 @@ const RepoSummary = ({ summary, loading, summaryError, onRegenerate }) => {
                 {!isCollapsed && summary && (
                     <div className="px-6 py-3 bg-slate-950/50 border-t border-slate-800/30 flex items-center justify-between">
                         <div className="flex items-center gap-4 text-xs text-slate-400">
-                            <span>Words: <span className="font-bold text-slate-200">{wordCount}</span></span>
-                            <span>Sentences: <span className="font-bold text-slate-200">{sentenceCount}</span></span>
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-cyan-500"></div>
+                                <span>Words: <span className="font-bold text-slate-200">{wordCount}</span></span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
+                                <span>Sentences: <span className="font-bold text-slate-200">{sentenceCount}</span></span>
+                            </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            <button onClick={handleCopy} className="p-2 rounded-lg hover:bg-slate-800/50 transition" title="Copy">
-                                {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-slate-300" />}
+                            <button onClick={handleCopy} className="p-2 rounded-lg hover:bg-slate-800/50 transition group relative" title="Copy">
+                                {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-slate-400 group-hover:text-slate-200" />}
                             </button>
-                            <button onClick={handleDownload} className="p-2 rounded-lg hover:bg-slate-800/50 transition" title="Download">
-                                <Download className="w-4 h-4 text-slate-300" />
+                            <button onClick={handleDownload} className="p-2 rounded-lg hover:bg-slate-800/50 transition group" title="Download">
+                                <Download className="w-4 h-4 text-slate-400 group-hover:text-slate-200" />
                             </button>
                         </div>
                     </div>

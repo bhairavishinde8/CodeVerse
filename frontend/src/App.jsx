@@ -175,7 +175,7 @@ const App = () => {
       }
       
       setRepoData(data);
-      fetchRepoSummary(repoUrl, 'paragraph', 'medium');
+      fetchRepoSummary(repoUrl, 'paragraph', 'medium', 'standard');
     } catch (err) {
       console.error("Error fetching repo:", err);
       setError(err.message || 'Failed to fetch repository. Please check the URL and try again.');
@@ -184,7 +184,7 @@ const App = () => {
     }
   };
 
-  const fetchRepoSummary = async (url, mode, length) => {
+  const fetchRepoSummary = async (url, mode, length, languageLevel) => {
     setLoadingSummary(true);
     setSummaryError(null);
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
@@ -194,7 +194,7 @@ const App = () => {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ repoUrl: url, mode, length }),
+            body: JSON.stringify({ repoUrl: url, mode, length, languageLevel }),
         });
 
         if (!response.ok) {
@@ -357,7 +357,7 @@ const App = () => {
                 summary={summary}
                 loading={loadingSummary}
                 summaryError={summaryError}
-                onRegenerate={(mode, length) => fetchRepoSummary(repoUrl, mode, length)}
+                onRegenerate={(mode, length, languageLevel) => fetchRepoSummary(repoUrl, mode, length, languageLevel)}
             />
           </>
         )}

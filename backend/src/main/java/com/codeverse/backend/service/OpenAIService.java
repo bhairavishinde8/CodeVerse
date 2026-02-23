@@ -48,7 +48,7 @@ public class OpenAIService {
         return makeRequest(requestBody);
     }
 
-    public Mono<String> summarizeRepository(String readmeContent, List<String> fileStructure, String mode, String length) {
+    public Mono<String> summarizeRepository(String readmeContent, List<String> fileStructure, String mode, String length, String languageLevel) {
         if (apiToken == null || apiToken.isEmpty()) {
             return Mono.error(new IllegalStateException("Hugging Face API token not configured"));
         }
@@ -87,6 +87,12 @@ public class OpenAIService {
             default -> "Provide standard detail.";
         };
 
+        String toneInstruction = switch (languageLevel.toLowerCase()) {
+            case "beginner" -> "Explain like I'm 5 years old. Avoid jargon. Use simple analogies.";
+            case "technical" -> "Use professional technical terminology. Focus on architecture and implementation details.";
+            default -> "Use standard developer-friendly language.";
+        };
+
         String prompt = String.format("""
                 Analyze this GitHub repository and generate a structured summary.
                 
@@ -97,11 +103,12 @@ public class OpenAIService {
                 INSTRUCTIONS:
                 1. Mode: %s
                 2. Length: %s
-                3. OUTPUT FORMAT: Return ONLY a valid JSON object matching the structure below.
+                3. Tone/Level: %s
+                4. OUTPUT FORMAT: Return ONLY a valid JSON object matching the structure below. Do NOT wrap in markdown code blocks.
                 
                 REQUIRED JSON STRUCTURE:
                 %s
-                """, truncatedReadme, fileList, mode, lengthInstruction, jsonStructure);
+                """, truncatedReadme, fileList, mode, lengthInstruction, toneInstruction, jsonStructure);
 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("model", modelName);
@@ -111,7 +118,7 @@ public class OpenAIService {
         ));
         requestBody.put("max_tokens", 1500);
         requestBody.put("temperature", 0.3);
-        requestBody.put("response_format", Map.of("type", "json_object"));
+        // Removed response_format to avoid 400 errors with some models
 
         return makeRequest(requestBody);
     }
