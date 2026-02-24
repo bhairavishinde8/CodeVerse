@@ -179,6 +179,57 @@ public class OpenAIService {
         return makeRequest(requestBody);
     }
 
+    public Mono<String> findBugsInFile(String fileContent, String languageLevel) {
+        if (apiToken == null || apiToken.isEmpty()) {
+            return Mono.error(new IllegalStateException("Hugging Face API token not configured"));
+        }
+
+        String toneInstruction = switch (languageLevel.toLowerCase()) {
+            case "beginner" -> "Explain bugs in very simple terms, as if for a first-time coder.";
+            case "technical" -> "Provide a deep, technical analysis of the bug, including potential memory or performance impacts.";
+            default -> "Provide a standard, developer-friendly explanation of the bug.";
+        };
+
+        String prompt = String.format("""
+            [INST] You are an expert static analysis tool. Your task is to find critical bugs in the provided code that would cause a runtime error if not corrected.
+            
+            CODE:
+            ```
+            %s
+            ```
+            
+            INSTRUCTIONS:
+            1. Focus ONLY on critical bugs like Null Pointer Exceptions, Index Out of Bounds, Type Mismatches, or unhandled exceptions.
+            2. For each bug found, provide the exact line of code as a snippet.
+            3. If no critical bugs are found, return an empty array.
+            4. OUTPUT FORMAT: Return ONLY a valid JSON array of objects. Do not include markdown.
+            
+            REQUIRED JSON STRUCTURE:
+            [
+              {
+                "line": "Int (Your best guess for the line number)",
+                "code_snippet": "String (The exact line of code containing the bug)",
+                "type": "String (A short, descriptive bug category, e.g., 'Null Pointer Risk')",
+                "severity": "String ('High', 'Medium', or 'Low')",
+                "explanation": "String (A beginner-friendly explanation of why this is a bug)",
+                "suggestion": "String (A concrete code suggestion on how to fix the bug)"
+              }
+            ]
+            [/INST]
+            """, fileContent, toneInstruction);
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("model", modelName);
+        requestBody.put("messages", List.of(
+                Map.of("role", "system", "content", "You are a code analysis expert. You strictly output valid JSON."),
+                Map.of("role", "user", "content", prompt)
+        ));
+        requestBody.put("max_tokens", 2000);
+        requestBody.put("temperature", 0.1);
+
+        return makeRequest(requestBody);
+    }
+
     private Mono<String> makeRequest(Map<String, Object> requestBody) {
         return webClient.post()
                 .uri(apiUrl)

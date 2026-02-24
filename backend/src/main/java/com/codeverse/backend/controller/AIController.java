@@ -46,4 +46,20 @@ public class AIController {
                         ResponseEntity.internalServerError().body(Map.of("error", "Failed to analyze file: " + e.getMessage()))
                 ));
     }
+
+    @PostMapping("/find-bugs")
+    public Mono<ResponseEntity<Map<String, String>>> findBugs(@RequestBody Map<String, String> request) {
+        String fileContent = request.get("fileContent");
+        String languageLevel = request.getOrDefault("languageLevel", "standard");
+
+        if (fileContent == null || fileContent.isEmpty()) {
+            return Mono.just(ResponseEntity.badRequest().body(Map.of("error", "File content is required")));
+        }
+
+        return openAIService.findBugsInFile(fileContent, languageLevel)
+                .map(bugs -> ResponseEntity.ok(Map.of("bugs", bugs)))
+                .onErrorResume(e -> Mono.just(
+                        ResponseEntity.internalServerError().body(Map.of("error", "Failed to find bugs: " + e.getMessage()))
+                ));
+    }
 }
