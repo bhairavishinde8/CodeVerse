@@ -140,6 +140,20 @@ const FilePreview = ({ filePreview, setFilePreview, repoData, fetchFileContent }
     }
   };
 
+  const handleCommentClick = (commentItem) => {
+    const lineNum = findLineByContent(commentItem.code_snippet) || commentItem.line;
+    setHighlightedLine(lineNum);
+    if (codeContainerRef.current) {
+      const lineElement = codeContainerRef.current.querySelector(`[data-line="${lineNum}"]`);
+      if (lineElement) lineElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  const handleCommentHover = (commentItem) => {
+    const lineNum = findLineByContent(commentItem.code_snippet) || commentItem.line;
+    setHighlightedLine(lineNum);
+  };
+
   const handleMouseDown = (e) => {
     if (e.target.closest && (e.target.closest('button') || e.target.closest('a') || e.target.closest('.no-drag'))) return;
     setIsDragging(true);
@@ -314,7 +328,21 @@ const FilePreview = ({ filePreview, setFilePreview, repoData, fetchFileContent }
                   <div className="flex-1 overflow-auto p-4 custom-scrollbar">
                     {aiLoading ? <div className="flex flex-col items-center justify-center h-full space-y-4 text-slate-400"><Loader className="w-8 h-8 animate-spin text-indigo-500" /><p className="text-xs font-medium animate-pulse">Analyzing code structure...</p></div> : aiData ? (
                       <div className="space-y-6 animate-in fade-in duration-300">
-                        {/* AI Explanation Content */}
+                        {activeTab === 'explanation' && aiData.explanation && (
+                          <>
+                            <div className="space-y-2"><h4 className="text-sm font-bold text-indigo-400 flex items-center gap-2"><FileText className="w-4 h-4" /> Overview</h4><p className="text-sm text-slate-300 leading-relaxed">{aiData.explanation.overview}</p></div>
+                            <div className="space-y-2"><h4 className="text-sm font-bold text-indigo-400 flex items-center gap-2"><Brain className="w-4 h-4" /> Key Logic</h4><p className="text-sm text-slate-300 leading-relaxed">{aiData.explanation.key_logic}</p></div>
+                            <div className="space-y-2"><h4 className="text-sm font-bold text-indigo-400 flex items-center gap-2"><Loader className="w-4 h-4" /> Execution Flow</h4><p className="text-sm text-slate-300 leading-relaxed">{aiData.explanation.code_flow}</p></div>
+                          </>
+                        )}
+                        {activeTab === 'comments' && aiData.comments && <div className="space-y-3">{aiData.comments.map((item, idx) => <div key={idx} onClick={() => handleCommentClick(item)} onMouseEnter={() => handleCommentHover(item)} onMouseLeave={() => setHighlightedLine(null)} className={`flex gap-3 p-3 rounded-lg border cursor-pointer transition-all duration-200 ${highlightedLine === findLineByContent(item.code_snippet) ? 'bg-indigo-500/20 border-indigo-500/50' : 'bg-slate-800/30 border-slate-700/30 hover:bg-slate-800/50'}`}><span className="text-xs font-mono text-indigo-400 w-8 text-right flex-shrink-0 pt-0.5">L{findLineByContent(item.code_snippet) || item.line}</span><div className="flex-1 min-w-0"><p className="text-xs font-mono text-slate-500 mb-1 truncate bg-slate-900/50 px-1.5 py-0.5 rounded border border-slate-700/50">{item.code_snippet || `Line ${item.line}`}</p><p className="text-sm text-slate-300">{item.comment}</p></div></div>)}</div>}
+                        {activeTab === 'insights' && aiData.insights && (
+                          <>
+                            <div className="space-y-2"><h4 className="text-sm font-bold text-emerald-400 flex items-center gap-2"><Check className="w-4 h-4" /> Best Practices</h4><ul className="list-disc list-inside space-y-1 text-sm text-slate-300">{aiData.insights.best_practices.map((bp, i) => <li key={i}>{bp}</li>)}</ul></div>
+                            <div className="space-y-2"><h4 className="text-sm font-bold text-amber-400 flex items-center gap-2"><Lightbulb className="w-4 h-4" /> Improvements</h4><ul className="list-disc list-inside space-y-1 text-sm text-slate-300">{aiData.insights.possible_improvements.map((pi, i) => <li key={i}>{pi}</li>)}</ul></div>
+                            <div className="mt-4 pt-4 border-t border-slate-700/50 flex justify-between items-center"><span className="text-xs text-slate-400">Complexity Score</span><span className="px-2 py-1 rounded bg-indigo-500/20 text-indigo-300 text-xs font-bold border border-indigo-500/30">{aiData.insights.complexity}</span></div>
+                          </>
+                        )}
                       </div>
                     ) : <div className="flex flex-col items-center justify-center h-full text-slate-500"><Brain className="w-12 h-12 mb-3 opacity-20" /><p className="text-sm">Select a mode to generate analysis</p></div>}
                   </div>
